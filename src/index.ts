@@ -35,7 +35,7 @@ const tokenVerifier: OAuthTokenVerifier = {
 
 const handler = createMcpHandler(() => buildServer(config));
 
-const app = createMcpExpressApp({ allowedHosts: ['localhost', '127.0.0.1', 'host.docker.internal'] });
+const app = createMcpExpressApp({ allowedHosts: config.allowedHosts });
 const auth = requireBearerAuth({ verifier: tokenVerifier, requiredScopes: ['mcp'] });
 const nodeHandler = toNodeHandler(handler);
 app.all('/mcp', auth, (req, res) => void nodeHandler(req, res, req.body));

@@ -20,6 +20,7 @@ cp .env.example .env  # 値を埋める
 - `GITHUB_APP_PRIVATE_KEY_OP_REF`: 秘密鍵の1Password secret reference (`op://vault/item/field`)
 - `OP_ACCOUNT_NAME`: 1Password desktop app サイドバーに表示されるアカウント名（`DesktopAuth`用）
 - `MCP_BEARER_TOKEN`: devcontainer側が `Authorization: Bearer <token>` で提示する共有シークレット
+- `MCP_ALLOWED_HOSTS`（任意）: 受け付ける `Host` ヘッダのカンマ区切りリスト（DNS rebinding対策）。未設定時は `localhost,127.0.0.1,host.docker.internal`
 
 1Password desktop app側で **Settings > Developer > Integrate with other apps** を有効化しておくこと。
 

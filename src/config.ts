@@ -6,6 +6,17 @@ function requireEnv(name: string): string {
     return value;
 }
 
+const DEFAULT_ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'host.docker.internal'];
+
+/** Comma-separated host list; empty/unset falls back to the loopback + Docker host defaults. */
+function parseAllowedHosts(raw: string | undefined): string[] {
+    const hosts = (raw ?? '')
+        .split(',')
+        .map((host) => host.trim())
+        .filter((host) => host.length > 0);
+    return hosts.length > 0 ? hosts : DEFAULT_ALLOWED_HOSTS;
+}
+
 export interface Config {
     /** GitHub App ID (numeric, as string in env). */
     appId: string;
@@ -19,6 +30,8 @@ export interface Config {
     mcpBearerToken: string;
     /** Port to listen on. */
     port: number;
+    /** Host header values the MCP express app accepts (DNS rebinding protection). */
+    allowedHosts: string[];
 }
 
 export function loadConfig(): Config {
@@ -28,6 +41,7 @@ export function loadConfig(): Config {
         privateKeySecretRef: requireEnv('GITHUB_APP_PRIVATE_KEY_OP_REF'),
         onePasswordAccount: requireEnv('OP_ACCOUNT_NAME'),
         mcpBearerToken: requireEnv('MCP_BEARER_TOKEN'),
-        port: Number(process.env.PORT ?? '3000')
+        port: Number(process.env.PORT ?? '3000'),
+        allowedHosts: parseAllowedHosts(process.env.MCP_ALLOWED_HOSTS)
     };
 }
