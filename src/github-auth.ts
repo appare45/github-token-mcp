@@ -1,0 +1,117 @@
+import { createAppAuth } from '@octokit/auth-app';
+import type { components } from '@octokit/openapi-types';
+import { Octokit } from '@octokit/rest';
+
+import type { Config } from './config.js';
+import { TokenError } from './errors.js';
+import { readSecretFromOp } from './op-secret.js';
+
+/** GitHub's own App permissions schema — reused instead of hand-rolling permission names. */
+export type PermissionMap = components['schemas']['app-permissions'];
+type PermissionLevel = 'read' | 'write' | 'admin';
+
+export interface IssuedToken {
+    token: string;
+    expiresAt: string;
+    repos: string[];
+    permissions: PermissionMap;
+}
+
+/**
+ * Fetched once per `get_installation_token` call and threaded through the
+ * helpers below — never cached across calls or held longer than one
+ * request. Callers should fetch it exactly once per request; fetching it
+ * separately in each helper would otherwise trigger a 1Password desktop-app
+ * approval prompt (via DesktopAuth) once per helper instead of once per request.
+ */
+export async function loadPrivateKey(config: Config): Promise<string> {
+    return readSecretFromOp(config.privateKeySecretRef, config.onePasswordAccount);
+}
+
+function createUnscopedInstallationOctokit(config: Config, privateKey: string): Octokit {
+    return new Octokit({
+        authStrategy: createAppAuth,
+        auth: {
+            appId: config.appId,
+            privateKey,
+            installationId: config.installationId
+        }
+    });
+}
+
+/** Repos this installation actually covers, as `owner/repo` strings. */
+export async function listInstalledRepos(config: Config, privateKey: string): Promise<string[]> {
+    const octokit = createUnscopedInstallationOctokit(config, privateKey);
+    try {
+        const repos = await octokit.paginate(octokit.rest.apps.listReposAccessibleToInstallation, {});
+        return repos.map((repo) => repo.full_name);
+    } catch (cause) {
+        throw new TokenError('github_api_error', `failed to list installation repositories: ${(cause as Error).message}`);
+    }
+}
+
+/** The permission set the App/installation is registered with (the ceiling callers may request within). */
+export async function getInstalledPermissions(config: Config, privateKey: string): Promise<PermissionMap> {
+    const appOctokit = new Octokit({
+        authStrategy: createAppAuth,
+        auth: { appId: config.appId, privateKey }
+    });
+    try {
+        const { data } = await appOctokit.rest.apps.getInstallation({ installation_id: config.installationId });
+        return (data.permissions ?? {}) as PermissionMap;
+    } catch (cause) {
+        throw new TokenError('github_api_error', `failed to read installation permissions: ${(cause as Error).message}`);
+    }
+}
+
+export function assertReposCovered(requested: string[], installed: string[]): void {
+    const installedSet = new Set(installed);
+    const uncovered = requested.filter((repo) => !installedSet.has(repo));
+    if (uncovered.length > 0) {
+        throw new TokenError('repo_not_installed', `not covered by this installation: ${uncovered.join(', ')}`);
+    }
+}
+
+export function assertPermissionsAllowed(requested: PermissionMap, granted: PermissionMap): void {
+    const rank: Record<PermissionLevel, number> = { read: 1, write: 2, admin: 3 };
+    for (const [permission, level] of Object.entries(requested) as [string, PermissionLevel][]) {
+        const grantedLevel = (granted as Record<string, PermissionLevel | undefined>)[permission];
+        if (!grantedLevel || rank[level] > rank[grantedLevel]) {
+            throw new TokenError('permission_escalation_denied', `requested "${permission}: ${level}" exceeds installed grant`);
+        }
+    }
+}
+
+/**
+ * Issues an installation access token scoped down to `repos`/`permissions`.
+ * JWT signing and token exchange are delegated entirely to @octokit/auth-app.
+ */
+export async function issueInstallationToken(
+    config: Config,
+    privateKey: string,
+    repos: string[],
+    permissions?: PermissionMap
+): Promise<IssuedToken> {
+    const auth = createAppAuth({
+        appId: config.appId,
+        privateKey,
+        installationId: config.installationId
+    });
+
+    try {
+        const result = await auth({
+            type: 'installation',
+            repositoryNames: repos.map((repo) => repo.split('/').slice(1).join('/')),
+            ...(permissions ? { permissions } : {})
+        });
+
+        return {
+            token: result.token,
+            expiresAt: result.expiresAt,
+            repos,
+            permissions: (result.permissions ?? permissions ?? {}) as PermissionMap
+        };
+    } catch (cause) {
+        throw new TokenError('github_api_error', `failed to issue installation token: ${(cause as Error).message}`);
+    }
+}
