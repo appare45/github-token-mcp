@@ -29,7 +29,7 @@ const tokenVerifier: OAuthTokenVerifier = {
         if (!isValidBearerToken(token, config.mcpBearerToken)) {
             throw new OAuthError(OAuthErrorCode.InvalidToken, 'unknown token');
         }
-        return { token, clientId: 'devcontainer', scopes: ['mcp'] };
+        return { token, clientId: 'devcontainer', scopes: ['mcp'], expiresAt: Math.floor(Date.now() / 1000) + 3600 };
     }
 };
 
