@@ -5,7 +5,7 @@ import { validator } from 'hono/validator';
 
 import type { Config } from './config.js';
 import { isTokenError } from './errors.js';
-import { DEFAULT_PERMISSIONS, PERMISSION_LEVELS, type PermissionLevel, type RequestedPermissions } from './github-auth.js';
+import { DEFAULT_PERMISSIONS, isPermissionLevel, type RequestedPermissions } from './github-auth.js';
 import type { TokenIssuer } from './token-issuer.js';
 
 /**
@@ -22,10 +22,10 @@ const validatePermissionsQuery = validator('query', (query, c) => {
     }
     const permissions: RequestedPermissions = {};
     for (const [key, value] of entries) {
-        if (typeof value !== 'string' || !PERMISSION_LEVELS.has(value)) {
+        if (typeof value !== 'string' || !isPermissionLevel(value)) {
             return c.text(`invalid permission level for "${key}": ${value}`, 400);
         }
-        permissions[key] = value as PermissionLevel;
+        permissions[key] = value;
     }
     return permissions;
 });

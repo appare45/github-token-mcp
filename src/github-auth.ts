@@ -10,7 +10,12 @@ import { readSecretFromOp } from './op-secret.js';
 export type PermissionMap = components['schemas']['app-permissions'];
 const PERMISSION_LEVEL_VALUES = ['read', 'write', 'admin'] as const;
 export type PermissionLevel = (typeof PERMISSION_LEVEL_VALUES)[number];
-export const PERMISSION_LEVELS: ReadonlySet<string> = new Set<PermissionLevel>(PERMISSION_LEVEL_VALUES);
+const PERMISSION_LEVEL_SET: ReadonlySet<string> = new Set<PermissionLevel>(PERMISSION_LEVEL_VALUES);
+
+/** Type-guarded membership check — Set.prototype.has has no type predicate, so this avoids a manual cast at call sites. */
+export function isPermissionLevel(value: string): value is PermissionLevel {
+    return PERMISSION_LEVEL_SET.has(value);
+}
 
 /**
  * A permission request as validated by callers (e.g. `parsePermissionsFromQuery`):
