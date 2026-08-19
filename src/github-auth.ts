@@ -92,8 +92,13 @@ export function assertReposCovered(requested: string[], installed: string[]): vo
 
 export function assertPermissionsAllowed(requested: RequestedPermissions, granted: PermissionMap): void {
     const rank: Record<PermissionLevel, number> = { read: 1, write: 2, admin: 3 };
+    // `granted` has no index signature (it's PermissionMap's ~50 fixed optional
+    // keys), but `permission` is an arbitrary runtime string, so this dynamic-key
+    // read needs a cast to a plain lookup type — not an external-SDK boundary,
+    // just TypeScript's lack of a "read any key, get T | undefined" builtin.
+    const grantedByKey = granted as Record<string, PermissionLevel | undefined>;
     for (const [permission, level] of Object.entries(requested)) {
-        const grantedLevel = (granted as Record<string, PermissionLevel | undefined>)[permission];
+        const grantedLevel = grantedByKey[permission];
         if (!grantedLevel || rank[level] > rank[grantedLevel]) {
             throw new TokenError('permission_escalation_denied', `requested "${permission}: ${level}" exceeds installed grant`);
         }
