@@ -1,16 +1,8 @@
 # github-token-mcp
 
-`spec.md` の実装。devcontainer内のエージェントへ、GitHub App installation access token を都度発行するホスト専用HTTPサーバー。
+devcontainer内のエージェントへ、GitHub App installation access token を都度発行するホスト専用HTTPサーバー。GitHub Appの秘密鍵はホスト側にのみ存在し、devcontainer側には一切渡さない。
 
-## 技術構成
-
-- **HTTP server**: `Hono` (`@hono/node-server` で配信)
-- **GitHub App認証**: `@octokit/auth-app` の `createAppAuth`（JWT生成・token交換は自前実装しない）
-- **秘密鍵取得**: `@1password/sdk` の `DesktopAuth` — CLIシェルアウトではなく1Password desktop appでの生体認証/システム認証プロンプトを都度要求する
-- **Bearer認証**: `hono/bearer-auth`。固定の共有トークンを `Authorization: Bearer <token>` で提示する
-- **アクセスログ**: `hono/logger`。stderrにリクエストログを出力する（トークン自体は出力しない）
-
-## セットアップ
+## セットアップ（ホスト側でサーバーを起動）
 
 ```bash
 npm install
@@ -29,6 +21,57 @@ cp .env.example .env  # 値を埋める
 npm run dev    # tsx watch で起動
 npm run build && npm start
 ```
+
+## devcontainerでの使い方
+
+サーバーをホストで起動しておけば、devcontainer側は `GITHUB_TOKEN`/`GH_TOKEN` がシェル全体に設定された状態で `gh` や `git` をそのまま使える。都度MCPツールを呼ぶ必要はない。
+
+1. 利用するリポジトリの `.devcontainer/devcontainer.json` に、対象リポジトリと共有シークレットを渡す設定を追加する:
+   ```json
+   {
+     "containerEnv": {
+       "GITHUB_REPO": "<owner>/<repo>"
+     },
+     "remoteEnv": {
+       "BEARER_TOKEN": "${localEnv:BEARER_TOKEN}"
+     }
+   }
+   ```
+   `BEARER_TOKEN` は `devcontainer up` を実行するホスト側シェルで export しておく（`.env` はサーバープロセス自身が読むだけで、`${localEnv:...}` は別途OSのシェル環境変数を見る）。
+2. Linuxホストでは `host.docker.internal` が既定で解決されないため、`runArgs: ["--add-host=host.docker.internal:host-gateway"]` を追加する。
+3. Claude Codeの設定（`~/.claude/settings.json`。devcontainer間で共有する `claude-code-config` volumeに置けば全プロジェクト共通で効く）に、セッション開始時にトークンを取得して `$CLAUDE_ENV_FILE` へ書き出す `SessionStart` フックを登録する:
+   ```json
+   {
+     "hooks": {
+       "SessionStart": [
+         {
+           "matcher": "",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "$CLAUDE_CONFIG_DIR/hooks/fetch-github-token.sh >> \"$CLAUDE_ENV_FILE\""
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+   `fetch-github-token.sh` は `$GITHUB_REPO` / `$BEARER_TOKEN` を使ってこのサーバーからトークンを取得し、`export GITHUB_TOKEN=... GH_TOKEN=...` を出力するだけのスクリプト。`GITHUB_REPO`/`BEARER_TOKEN` が未設定のプロジェクトでは何もせず終了するため、他プロジェクトに影響しない。
+   ```bash
+   #!/bin/sh
+   set -e
+   if [ -z "$GITHUB_REPO" ] || [ -z "$BEARER_TOKEN" ]; then
+     exit 0
+   fi
+   token=$(curl -fsS "http://host.docker.internal:3000/${GITHUB_REPO}" \
+     -H "Authorization: Bearer ${BEARER_TOKEN}") || exit 0
+   GH_TOKEN="$token" gh auth setup-git >/dev/null 2>&1 || true
+   echo "export GITHUB_TOKEN=${token} GH_TOKEN=${token}"
+   ```
+   `gh auth setup-git` はgitのcredential helperを `gh` に向ける設定で、`gh` は呼び出し時点の `GH_TOKEN` を見て認証するため、これで `gh` CLIだけでなく `git push`/`git clone` などHTTPS経由のgit操作もそのまま通るようになる。
+
+これでコンテナ内のClaude Codeセッションは起動時にトークンを取得済みの状態になり、`gh auth login` なしで `gh`/`git` が使える。installation tokenの有効期限は約1時間なので、それを超える長時間セッションでは新しいセッションを開始して再取得する。
 
 ## API
 
@@ -69,28 +112,4 @@ curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp" \
 ```bash
 curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp?contents=read" \
   -H "Authorization: Bearer ${BEARER_TOKEN}"
-```
-
-## 実装状況（骨子）
-
-- [x] `TokenIssuer` インターフェースによるトークン発行処理の抽象化
-- [x] repos カバレッジ・permissions のいずれも事前検証せず、GitHubのトークン発行APIが返す422をそのまま `request_rejected` として返す
-- [x] 1Password 経由の秘密鍵取得 → 503 `key_unavailable`
-- [x] `@octokit/auth-app` へのトークン発行委譲 → 502 `github_api_error`
-- [x] Hono + Bearer認証 + Hostヘッダ許可リストでの配信
-- [x] 実際のGitHub App / 1Password vaultに対する動作確認
-- [ ] devcontainer側の利用パターン（spec.mdで明示的に後回しとされている）
-
-## ディレクトリ構成
-
-```
-src/
-  config.ts          環境変数ロード
-  errors.ts          エラーコードに対応するAppError
-  op-secret.ts        1Password DesktopAuth 経由の秘密鍵取得
-  github-auth.ts      createAppAuth 呼び出し + GitHub側422レスポンスのrequest_rejectedへの分類
-  token-issuer.ts       TokenIssuer インターフェース定義
-  github-token-issuer.ts  TokenIssuer の GitHub App 向け実装
-  app.ts               Hono アプリ（Bearer認証・Hostチェック・ルーティング）
-  index.ts             HTTPエントリポイント
 ```
