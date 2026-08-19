@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
+import { logger } from 'hono/logger';
 
 import type { Config } from './config.js';
 import { isTokenError, TokenError } from './errors.js';
@@ -24,6 +25,8 @@ function parsePermissionsFromQuery(query: Record<string, string>): PermissionMap
 
 export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
     const app = new Hono();
+
+    app.use('*', logger((str, ...rest) => console.error(str, ...rest)));
 
     app.use('*', async (c, next) => {
         const host = c.req.header('host')?.split(':')[0] ?? '';
