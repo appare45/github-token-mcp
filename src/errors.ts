@@ -10,7 +10,7 @@ export type TokenErrorCode =
 /** TokenError exists to become an HTTP response, so it's fine for httpStatus to speak Hono's status type directly. */
 export type HttpErrorStatus = ClientErrorStatusCode | ServerErrorStatusCode;
 
-const HTTP_STATUS: Record<TokenErrorCode, HttpErrorStatus> = {
+const HTTP_STATUS: Readonly<Record<TokenErrorCode, HttpErrorStatus>> = {
     invalid_request: 400,
     repo_not_installed: 404,
     permission_escalation_denied: 403,
