@@ -10,6 +10,13 @@ import type { TokenIssuer } from './token-issuer.js';
 export function createTokenIssuer(config: Config): TokenIssuer {
     return {
         async issueToken(repos, permissions) {
+            // Logged before loadPrivateKey (which triggers the 1Password
+            // desktop-app prompt) so the prompt can be judged against the
+            // request that provoked it — see issue #3.
+            console.info(
+                `[token-request] time=${new Date().toISOString()} repos=${repos.join(',')} permissions=${JSON.stringify(permissions ?? {})}`
+            );
+
             const privateKey = await loadPrivateKey(config);
 
             // Neither repo coverage nor permission grants are pre-checked here
