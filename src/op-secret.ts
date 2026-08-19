@@ -1,6 +1,6 @@
 import { createClient, DesktopAuth } from '@1password/sdk';
 
-import { TokenError } from './errors.js';
+import { AppError } from './errors.js';
 
 let clientPromise: ReturnType<typeof createClient> | undefined;
 
@@ -25,6 +25,6 @@ export async function readSecretFromOp(reference: string, accountName: string): 
         const client = await getClient(accountName);
         return await client.secrets.resolve(reference);
     } catch (cause) {
-        throw new TokenError('key_unavailable', `failed to read private key from 1Password: ${(cause as Error).message}`);
+        throw new AppError('key_unavailable', `failed to read private key from 1Password: ${(cause as Error).message}`);
     }
 }
