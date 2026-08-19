@@ -3,11 +3,8 @@ import { bearerAuth } from 'hono/bearer-auth';
 
 import type { Config } from './config.js';
 import { isTokenError, TokenError } from './errors.js';
-import type { PermissionMap } from './github-auth.js';
+import { DEFAULT_PERMISSIONS, PERMISSION_LEVELS, type PermissionMap } from './github-auth.js';
 import type { TokenIssuer } from './token-issuer.js';
-
-const DEFAULT_PERMISSIONS: PermissionMap = { contents: 'write', issues: 'write', pull_requests: 'write' };
-const PERMISSION_LEVELS = new Set(['read', 'write', 'admin']);
 
 /** Parses `?<permission>=<level>` query params into a PermissionMap, or throws a TokenError on bad input. */
 function parsePermissionsFromQuery(query: Record<string, string>): PermissionMap | undefined {
