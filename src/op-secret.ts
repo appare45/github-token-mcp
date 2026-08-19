@@ -13,7 +13,7 @@ let clientPromise: ReturnType<typeof createClient> | undefined;
 function getClient(accountName: string) {
     clientPromise ??= createClient({
         auth: new DesktopAuth(accountName),
-        integrationName: 'github-token-mcp',
+        integrationName: 'gh-token-server',
         integrationVersion: '0.1.0'
     });
     return clientPromise;

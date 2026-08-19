@@ -9,5 +9,5 @@ const tokenIssuer = createTokenIssuer(config);
 const app = buildApp(config, tokenIssuer);
 
 serve({ fetch: app.fetch, port: config.port }, (info) => {
-    console.error(`[github-token-mcp] listening on http://0.0.0.0:${info.port}`);
+    console.error(`[gh-token-server] listening on http://0.0.0.0:${info.port}`);
 });
