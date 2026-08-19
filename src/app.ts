@@ -35,6 +35,11 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
 
     app.use('*', logger((str, ...rest) => console.error(str, ...rest)));
 
+    // Bearer auth runs before the Host check so an unauthenticated caller
+    // always sees 401, never learning from a 403 whether their Host header
+    // was the problem.
+    app.use('*', bearerAuth({ token: config.bearerToken }));
+
     app.use('*', async (c, next) => {
         const host = c.req.header('host')?.split(':')[0] ?? '';
         if (!config.allowedHosts.includes(host)) {
@@ -42,8 +47,6 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
         }
         return next();
     });
-
-    app.use('*', bearerAuth({ token: config.bearerToken }));
 
     app.get('/:owner/:repo', validatePermissionsQuery, async (c) => {
         const { owner, repo } = c.req.param();
