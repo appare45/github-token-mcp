@@ -90,7 +90,8 @@ src/
   errors.ts          エラーコードに対応するTokenError
   op-secret.ts        1Password DesktopAuth 経由の秘密鍵取得
   github-auth.ts      installation repos/permissions 検証 + createAppAuth 呼び出し
-  token-issuer.ts      TokenIssuer インターフェースとその実装
+  token-issuer.ts       TokenIssuer インターフェース定義
+  github-token-issuer.ts  TokenIssuer の GitHub App 向け実装
   app.ts               Hono アプリ（Bearer認証・Hostチェック・ルーティング）
   index.ts             HTTPエントリポイント
 ```

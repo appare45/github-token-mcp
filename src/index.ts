@@ -2,7 +2,7 @@ import { serve } from '@hono/node-server';
 
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
-import { createTokenIssuer } from './token-issuer.js';
+import { createTokenIssuer } from './github-token-issuer.js';
 
 const config = loadConfig();
 const tokenIssuer = createTokenIssuer(config);
