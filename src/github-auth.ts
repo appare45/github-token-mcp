@@ -8,8 +8,9 @@ import { readSecretFromOp } from './op-secret.js';
 
 /** GitHub's own App permissions schema — reused instead of hand-rolling permission names. */
 export type PermissionMap = components['schemas']['app-permissions'];
-export type PermissionLevel = 'read' | 'write' | 'admin';
-export const PERMISSION_LEVELS: ReadonlySet<string> = new Set<PermissionLevel>(['read', 'write', 'admin']);
+const PERMISSION_LEVEL_VALUES = ['read', 'write', 'admin'] as const;
+export type PermissionLevel = (typeof PERMISSION_LEVEL_VALUES)[number];
+export const PERMISSION_LEVELS: ReadonlySet<string> = new Set<PermissionLevel>(PERMISSION_LEVEL_VALUES);
 
 /** Default permission grant when a caller doesn't request specific permissions, per spec.md. */
 export const DEFAULT_PERMISSIONS: PermissionMap = { contents: 'write', issues: 'write', pull_requests: 'write' };
