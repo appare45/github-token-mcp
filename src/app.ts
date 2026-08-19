@@ -1,6 +1,5 @@
-import { timingSafeEqual } from 'node:crypto';
-
 import { Hono } from 'hono';
+import { bearerAuth } from 'hono/bearer-auth';
 
 import type { Config } from './config.js';
 import { isTokenError, TokenError, type TokenErrorCode } from './errors.js';
@@ -9,18 +8,6 @@ import type { TokenIssuer } from './token-issuer.js';
 
 const DEFAULT_PERMISSIONS: PermissionMap = { contents: 'write', issues: 'write', pull_requests: 'write' };
 const PERMISSION_LEVELS = new Set(['read', 'write', 'admin']);
-
-/** Constant-time compare, guarding against length leaks too (Buffer.from is O(len), not secret-dependent). */
-function isValidBearerToken(candidate: string, expected: string): boolean {
-    const candidateBuf = Buffer.from(candidate);
-    const expectedBuf = Buffer.from(expected);
-    if (candidateBuf.length !== expectedBuf.length) {
-        // Still run a same-shaped comparison so the false branch takes ~equal time either way.
-        timingSafeEqual(expectedBuf, expectedBuf);
-        return false;
-    }
-    return timingSafeEqual(candidateBuf, expectedBuf);
-}
 
 /** Parses `?<permission>=<level>` query params into a PermissionMap, or throws a TokenError on bad input. */
 function parsePermissionsFromQuery(query: Record<string, string>): PermissionMap | undefined {
@@ -57,14 +44,7 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
         return next();
     });
 
-    app.use('*', async (c, next) => {
-        const auth = c.req.header('authorization') ?? '';
-        const [scheme, token] = auth.split(' ');
-        if (scheme !== 'Bearer' || !token || !isValidBearerToken(token, config.bearerToken)) {
-            return c.text('unauthorized', 401);
-        }
-        return next();
-    });
+    app.use('*', bearerAuth({ token: config.bearerToken }));
 
     app.get('/:owner/:repo', async (c) => {
         const { owner, repo } = c.req.param();

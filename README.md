@@ -7,7 +7,7 @@
 - **HTTP server**: `Hono` (`@hono/node-server` で配信)
 - **GitHub App認証**: `@octokit/auth-app` の `createAppAuth`（JWT生成・token交換は自前実装しない）
 - **秘密鍵取得**: `@1password/sdk` の `DesktopAuth` — CLIシェルアウトではなく1Password desktop appでの生体認証/システム認証プロンプトを都度要求する
-- **Bearer認証**: 固定の共有トークンを `Authorization: Bearer <token>` で提示する自前ミドルウェア
+- **Bearer認証**: `hono/bearer-auth`。固定の共有トークンを `Authorization: Bearer <token>` で提示する
 
 ## セットアップ
 
