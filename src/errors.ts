@@ -5,12 +5,22 @@ export type TokenErrorCode =
     | 'key_unavailable'
     | 'github_api_error';
 
+const HTTP_STATUS: Record<TokenErrorCode, number> = {
+    invalid_request: 400,
+    repo_not_installed: 404,
+    permission_escalation_denied: 403,
+    key_unavailable: 503,
+    github_api_error: 502
+};
+
 export class TokenError extends Error {
     readonly code: TokenErrorCode;
+    readonly httpStatus: number;
 
     constructor(code: TokenErrorCode, message: string) {
         super(message);
         this.code = code;
+        this.httpStatus = HTTP_STATUS[code];
         this.name = 'TokenError';
     }
 

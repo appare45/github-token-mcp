@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 
 import type { Config } from './config.js';
-import { isTokenError, TokenError, type TokenErrorCode } from './errors.js';
+import { isTokenError, TokenError } from './errors.js';
 import type { PermissionMap } from './github-auth.js';
 import type { TokenIssuer } from './token-issuer.js';
 
@@ -25,14 +25,6 @@ function parsePermissionsFromQuery(query: Record<string, string>): PermissionMap
     return permissions as PermissionMap;
 }
 
-const ERROR_STATUS: Record<TokenErrorCode, number> = {
-    invalid_request: 400,
-    repo_not_installed: 404,
-    permission_escalation_denied: 403,
-    key_unavailable: 503,
-    github_api_error: 502
-};
-
 export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
     const app = new Hono();
 
@@ -53,7 +45,7 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
             permissions = parsePermissionsFromQuery(c.req.query());
         } catch (error) {
             if (isTokenError(error)) {
-                return c.text(error.message, ERROR_STATUS[error.code] as 400);
+                return c.text(error.message, error.httpStatus as 400);
             }
             throw error;
         }
@@ -63,7 +55,7 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
             return c.text(result.token);
         } catch (error) {
             if (isTokenError(error)) {
-                return c.text(error.message, ERROR_STATUS[error.code] as 400);
+                return c.text(error.message, error.httpStatus as 400);
             }
             throw error;
         }
