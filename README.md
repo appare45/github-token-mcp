@@ -56,6 +56,20 @@ pull_requests: write
 | 502 | `github_api_error`（GitHub側でのトークン発行失敗） |
 | 503 | `key_unavailable`（1Passwordから秘密鍵が取得できない） |
 
+**リクエスト例**（devcontainer側から、ホストの `host.docker.internal:3000` へ）
+
+```bash
+curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp" \
+  -H "Authorization: Bearer ${BEARER_TOKEN}"
+```
+
+デフォルト権限を絞り込みたい場合はクエリパラメータで指定する:
+
+```bash
+curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp?contents=read" \
+  -H "Authorization: Bearer ${BEARER_TOKEN}"
+```
+
 ## 実装状況（骨子）
 
 - [x] `TokenIssuer` インターフェースによるトークン発行処理の抽象化
@@ -64,7 +78,7 @@ pull_requests: write
 - [x] 1Password 経由の秘密鍵取得 → 503 `key_unavailable`
 - [x] `@octokit/auth-app` へのトークン発行委譲 → 502 `github_api_error`
 - [x] Hono + Bearer認証 + Hostヘッダ許可リストでの配信
-- [ ] 実際のGitHub App / 1Password vaultに対する動作確認（要人間による認証情報準備）
+- [x] 実際のGitHub App / 1Password vaultに対する動作確認
 - [ ] devcontainer側の利用パターン（spec.mdで明示的に後回しとされている）
 
 ## ディレクトリ構成
