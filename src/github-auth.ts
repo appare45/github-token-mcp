@@ -3,7 +3,7 @@ import type { components } from '@octokit/openapi-types';
 import { Octokit } from '@octokit/rest';
 
 import type { Config } from './config.js';
-import { TokenError } from './errors.js';
+import { AppError } from './errors.js';
 import { readSecretFromOp } from './op-secret.js';
 
 /** GitHub's own App permissions schema — reused instead of hand-rolling permission names. */
@@ -64,7 +64,7 @@ export async function listInstalledRepos(config: Config, privateKey: string): Pr
         const repos = await octokit.paginate(octokit.rest.apps.listReposAccessibleToInstallation, {});
         return repos.map((repo) => repo.full_name);
     } catch (cause) {
-        throw new TokenError('github_api_error', `failed to list installation repositories: ${(cause as Error).message}`);
+        throw new AppError('github_api_error', `failed to list installation repositories: ${(cause as Error).message}`);
     }
 }
 
@@ -78,7 +78,7 @@ export async function getInstalledPermissions(config: Config, privateKey: string
         const { data } = await appOctokit.rest.apps.getInstallation({ installation_id: config.installationId });
         return (data.permissions ?? {}) as PermissionMap;
     } catch (cause) {
-        throw new TokenError('github_api_error', `failed to read installation permissions: ${(cause as Error).message}`);
+        throw new AppError('github_api_error', `failed to read installation permissions: ${(cause as Error).message}`);
     }
 }
 
@@ -86,7 +86,7 @@ export function assertReposCovered(requested: string[], installed: string[]): vo
     const installedSet = new Set(installed);
     const uncovered = requested.filter((repo) => !installedSet.has(repo));
     if (uncovered.length > 0) {
-        throw new TokenError('repo_not_installed', `not covered by this installation: ${uncovered.join(', ')}`);
+        throw new AppError('repo_not_installed', `not covered by this installation: ${uncovered.join(', ')}`);
     }
 }
 
@@ -100,7 +100,7 @@ export function assertPermissionsAllowed(requested: RequestedPermissions, grante
     for (const [permission, level] of Object.entries(requested)) {
         const grantedLevel = grantedByKey[permission];
         if (!grantedLevel || rank[level] > rank[grantedLevel]) {
-            throw new TokenError('permission_escalation_denied', `requested "${permission}: ${level}" exceeds installed grant`);
+            throw new AppError('permission_escalation_denied', `requested "${permission}: ${level}" exceeds installed grant`);
         }
     }
 }
@@ -138,6 +138,6 @@ export async function issueInstallationToken(
             permissions: (result.permissions ?? permissions ?? {}) as PermissionMap
         };
     } catch (cause) {
-        throw new TokenError('github_api_error', `failed to issue installation token: ${(cause as Error).message}`);
+        throw new AppError('github_api_error', `failed to issue installation token: ${(cause as Error).message}`);
     }
 }

@@ -4,7 +4,7 @@ import { logger } from 'hono/logger';
 import { validator } from 'hono/validator';
 
 import type { Config } from './config.js';
-import { isTokenError } from './errors.js';
+import { isAppError } from './errors.js';
 import { DEFAULT_PERMISSIONS, isPermissionLevel, type RequestedPermissions } from './github-auth.js';
 import type { TokenIssuer } from './token-issuer.js';
 
@@ -56,7 +56,7 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
             const result = await tokenIssuer.issueToken([`${owner}/${repo}`], permissions ?? DEFAULT_PERMISSIONS);
             return c.text(result.token);
         } catch (error) {
-            if (isTokenError(error)) {
+            if (isAppError(error)) {
                 return c.text(error.message, error.httpStatus);
             }
             throw error;

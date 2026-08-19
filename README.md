@@ -87,7 +87,7 @@ curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp?contents=re
 ```
 src/
   config.ts          環境変数ロード
-  errors.ts          エラーコードに対応するTokenError
+  errors.ts          エラーコードに対応するAppError
   op-secret.ts        1Password DesktopAuth 経由の秘密鍵取得
   github-auth.ts      installation repos/permissions 検証 + createAppAuth 呼び出し
   token-issuer.ts       TokenIssuer インターフェース定義
