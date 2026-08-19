@@ -1,4 +1,4 @@
-# github-token-mcp
+# gh-token-server
 
 devcontainer内のエージェントへ、GitHub App installation access token を都度発行するホスト専用HTTPサーバー。GitHub Appの秘密鍵はホスト側にのみ存在し、devcontainer側には一切渡さない。
 
@@ -104,13 +104,13 @@ pull_requests: write
 **リクエスト例**（devcontainer側から、ホストの `host.docker.internal:3000` へ）
 
 ```bash
-curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp" \
+curl -sS "http://host.docker.internal:3000/appare45/gh-token-server" \
   -H "Authorization: Bearer ${BEARER_TOKEN}"
 ```
 
 デフォルト権限を絞り込みたい場合はクエリパラメータで指定する:
 
 ```bash
-curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp?contents=read" \
+curl -sS "http://host.docker.internal:3000/appare45/gh-token-server?contents=read" \
   -H "Authorization: Bearer ${BEARER_TOKEN}"
 ```
