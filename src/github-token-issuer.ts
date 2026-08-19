@@ -1,12 +1,5 @@
 import type { Config } from './config.js';
-import {
-    assertPermissionsAllowed,
-    assertReposCovered,
-    getInstalledPermissions,
-    issueInstallationToken,
-    listInstalledRepos,
-    loadPrivateKey
-} from './github-auth.js';
+import { assertPermissionsAllowed, getInstalledPermissions, issueInstallationToken, loadPrivateKey } from './github-auth.js';
 import type { TokenIssuer } from './token-issuer.js';
 
 /**
@@ -21,14 +14,13 @@ export function createTokenIssuer(config: Config): TokenIssuer {
             // rather than re-resolved by each helper.
             const privateKey = await loadPrivateKey(config);
 
-            const installedRepos = await listInstalledRepos(config, privateKey);
-            assertReposCovered(repos, installedRepos);
-
             if (permissions) {
                 const installedPermissions = await getInstalledPermissions(config, privateKey);
                 assertPermissionsAllowed(permissions, installedPermissions);
             }
 
+            // Repo coverage isn't pre-checked here — issueInstallationToken
+            // maps GitHub's 404 response to repo_not_installed itself.
             return issueInstallationToken(config, privateKey, repos, permissions);
         }
     };

@@ -1,5 +1,6 @@
 import { createAppAuth } from '@octokit/auth-app';
 import type { components } from '@octokit/openapi-types';
+import { RequestError } from '@octokit/request-error';
 import { Octokit } from '@octokit/rest';
 
 import type { Config } from './config.js';
@@ -46,28 +47,6 @@ export async function loadPrivateKey(config: Config): Promise<string> {
     return readSecretFromOp(config.privateKeySecretRef, config.onePasswordAccount);
 }
 
-function createUnscopedInstallationOctokit(config: Config, privateKey: string): Octokit {
-    return new Octokit({
-        authStrategy: createAppAuth,
-        auth: {
-            appId: config.appId,
-            privateKey,
-            installationId: config.installationId
-        }
-    });
-}
-
-/** Repos this installation actually covers, as `owner/repo` strings. */
-export async function listInstalledRepos(config: Config, privateKey: string): Promise<string[]> {
-    const octokit = createUnscopedInstallationOctokit(config, privateKey);
-    try {
-        const repos = await octokit.paginate(octokit.rest.apps.listReposAccessibleToInstallation, {});
-        return repos.map((repo) => repo.full_name);
-    } catch (cause) {
-        throw new AppError('github_api_error', `failed to list installation repositories: ${(cause as Error).message}`);
-    }
-}
-
 /** The permission set the App/installation is registered with (the ceiling callers may request within). */
 export async function getInstalledPermissions(config: Config, privateKey: string): Promise<PermissionMap> {
     const appOctokit = new Octokit({
@@ -79,14 +58,6 @@ export async function getInstalledPermissions(config: Config, privateKey: string
         return (data.permissions ?? {}) as PermissionMap;
     } catch (cause) {
         throw new AppError('github_api_error', `failed to read installation permissions: ${(cause as Error).message}`);
-    }
-}
-
-export function assertReposCovered(requested: string[], installed: string[]): void {
-    const installedSet = new Set(installed);
-    const uncovered = requested.filter((repo) => !installedSet.has(repo));
-    if (uncovered.length > 0) {
-        throw new AppError('repo_not_installed', `not covered by this installation: ${uncovered.join(', ')}`);
     }
 }
 
@@ -138,6 +109,19 @@ export async function issueInstallationToken(
             permissions: (result.permissions ?? permissions ?? {}) as PermissionMap
         };
     } catch (cause) {
+        // GitHub returns 404 when a requested repo isn't covered by this
+        // installation, and 422 when requested permissions exceed what the
+        // installation was granted — no need to pre-check either via extra
+        // API calls (listReposAccessibleToInstallation/getInstallation) when
+        // the token-issuance response already tells us.
+        if (cause instanceof RequestError) {
+            if (cause.status === 404) {
+                throw new AppError('repo_not_installed', `not covered by this installation: ${repos.join(', ')}`);
+            }
+            if (cause.status === 422) {
+                throw new AppError('permission_escalation_denied', cause.message);
+            }
+        }
         throw new AppError('github_api_error', `failed to issue installation token: ${(cause as Error).message}`);
     }
 }
