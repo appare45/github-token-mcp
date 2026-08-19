@@ -5,7 +5,15 @@ export type TokenErrorCode =
     | 'key_unavailable'
     | 'github_api_error';
 
-const HTTP_STATUS: Record<TokenErrorCode, number> = {
+/**
+ * Deliberately not `hono`'s `StatusCode` type — errors.ts has no HTTP
+ * framework dependency. This is a plain literal union that happens to be a
+ * subset of Hono's `ContentfulStatusCode`, so `app.ts` can pass it to
+ * `c.text()` without a cast.
+ */
+export type HttpErrorStatus = 400 | 403 | 404 | 502 | 503;
+
+const HTTP_STATUS: Record<TokenErrorCode, HttpErrorStatus> = {
     invalid_request: 400,
     repo_not_installed: 404,
     permission_escalation_denied: 403,
@@ -15,7 +23,7 @@ const HTTP_STATUS: Record<TokenErrorCode, number> = {
 
 export class TokenError extends Error {
     readonly code: TokenErrorCode;
-    readonly httpStatus: number;
+    readonly httpStatus: HttpErrorStatus;
 
     constructor(code: TokenErrorCode, message: string) {
         super(message);

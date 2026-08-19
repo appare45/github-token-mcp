@@ -57,7 +57,7 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
             return c.text(result.token);
         } catch (error) {
             if (isTokenError(error)) {
-                return c.text(error.message, error.httpStatus as 400);
+                return c.text(error.message, error.httpStatus);
             }
             throw error;
         }
