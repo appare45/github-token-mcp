@@ -32,6 +32,8 @@ export interface Config {
     port: number;
     /** Host header values the HTTP server accepts (DNS rebinding protection). */
     allowedHosts: string[];
+    /** Optional script run (fire-and-forget) on each token request, before the 1Password prompt. */
+    tokenRequestHookPath: string | undefined;
 }
 
 export function loadConfig(): Config {
@@ -42,6 +44,7 @@ export function loadConfig(): Config {
         onePasswordAccount: requireEnv('OP_ACCOUNT_NAME'),
         bearerToken: requireEnv('BEARER_TOKEN'),
         port: Number(process.env.PORT ?? '3000'),
-        allowedHosts: parseAllowedHosts(process.env.ALLOWED_HOSTS)
+        allowedHosts: parseAllowedHosts(process.env.ALLOWED_HOSTS),
+        tokenRequestHookPath: process.env.TOKEN_REQUEST_HOOK_PATH || undefined
     };
 }

@@ -14,6 +14,7 @@ cp .env.example .env  # 値を埋める
 - `OP_ACCOUNT_NAME`: 1Password desktop app サイドバーに表示されるアカウント名（`DesktopAuth`用）
 - `BEARER_TOKEN`: devcontainer側が `Authorization: Bearer <token>` で提示する共有シークレット
 - `ALLOWED_HOSTS`（任意）: 受け付ける `Host` ヘッダのカンマ区切りリスト（DNS rebinding対策）。未設定時は `localhost,127.0.0.1,host.docker.internal`
+- `TOKEN_REQUEST_HOOK_PATH`（任意）: トークンリクエスト受信時（1Passwordプロンプトより前）に実行するスクリプトのパス。`TOKEN_REQUEST_REPOS`（カンマ区切り）/ `TOKEN_REQUEST_PERMISSIONS`（JSON文字列）を環境変数として渡す。fire-and-forgetで実行され、失敗してもトークン発行はブロックしない。macOS通知を出すサンプルが `hooks/notify-macos.sh`
 
 1Password desktop app側で **Settings > Developer > Integrate with other apps** を有効化しておくこと。
 
