@@ -1,7 +1,6 @@
 import { createAppAuth } from '@octokit/auth-app';
 import type { components } from '@octokit/openapi-types';
 import { RequestError } from '@octokit/request-error';
-import { Octokit } from '@octokit/rest';
 
 import type { Config } from './config.js';
 import { AppError } from './errors.js';
@@ -18,12 +17,7 @@ export function isPermissionLevel(value: string): value is PermissionLevel {
     return PERMISSION_LEVEL_SET.has(value);
 }
 
-/**
- * A permission request as validated by callers (e.g. `parsePermissionsFromQuery`):
- * keys are arbitrary strings (not necessarily real GitHub permission names —
- * `assertPermissionsAllowed` rejects unknown ones as 403, same as ones the
- * installation just doesn't have), values are confirmed to be PermissionLevel.
- */
+/** A permission request as validated by callers (e.g. `parsePermissionsFromQuery`): arbitrary string keys, PermissionLevel values. */
 export type RequestedPermissions = Record<string, PermissionLevel>;
 
 /** Default permission grant when a caller doesn't request specific permissions, per spec.md. */
@@ -47,35 +41,6 @@ export async function loadPrivateKey(config: Config): Promise<string> {
     return readSecretFromOp(config.privateKeySecretRef, config.onePasswordAccount);
 }
 
-/** The permission set the App/installation is registered with (the ceiling callers may request within). */
-export async function getInstalledPermissions(config: Config, privateKey: string): Promise<PermissionMap> {
-    const appOctokit = new Octokit({
-        authStrategy: createAppAuth,
-        auth: { appId: config.appId, privateKey }
-    });
-    try {
-        const { data } = await appOctokit.rest.apps.getInstallation({ installation_id: config.installationId });
-        return (data.permissions ?? {}) as PermissionMap;
-    } catch (cause) {
-        throw new AppError('github_api_error', `failed to read installation permissions: ${(cause as Error).message}`);
-    }
-}
-
-export function assertPermissionsAllowed(requested: RequestedPermissions, granted: PermissionMap): void {
-    const rank: Record<PermissionLevel, number> = { read: 1, write: 2, admin: 3 };
-    // `granted` has no index signature (it's PermissionMap's ~50 fixed optional
-    // keys), but `permission` is an arbitrary runtime string, so this dynamic-key
-    // read needs a cast to a plain lookup type — not an external-SDK boundary,
-    // just TypeScript's lack of a "read any key, get T | undefined" builtin.
-    const grantedByKey = granted as Record<string, PermissionLevel | undefined>;
-    for (const [permission, level] of Object.entries(requested)) {
-        const grantedLevel = grantedByKey[permission];
-        if (!grantedLevel || rank[level] > rank[grantedLevel]) {
-            throw new AppError('permission_escalation_denied', `requested "${permission}: ${level}" exceeds installed grant`);
-        }
-    }
-}
-
 /**
  * Issues an installation access token scoped down to `repos`/`permissions`.
  * JWT signing and token exchange are delegated entirely to @octokit/auth-app.
@@ -96,9 +61,10 @@ export async function issueInstallationToken(
         const result = await auth({
             type: 'installation',
             repositoryNames: repos.map((repo) => repo.split('/').slice(1).join('/')),
-            // permissions here is a caller-supplied subset validated by assertPermissionsAllowed
-            // above; createAppAuth's PermissionMap type is the external-SDK boundary, so this
-            // is the one place a cast is warranted.
+            // permissions here is caller-supplied and unvalidated against
+            // this installation's actual grant; createAppAuth's PermissionMap
+            // type is the external-SDK boundary, so this is the one place a
+            // cast is warranted.
             ...(permissions ? { permissions: permissions as PermissionMap } : {})
         });
 
@@ -109,13 +75,10 @@ export async function issueInstallationToken(
             permissions: (result.permissions ?? permissions ?? {}) as PermissionMap
         };
     } catch (cause) {
-        // No pre-check via extra API calls (listReposAccessibleToInstallation)
-        // for repo coverage — GitHub's token-issuance response already tells
-        // us. In practice it returns 422 (not the 404 its own OpenAPI spec
-        // documents) for repos outside the installation, with the same
-        // status also documented for over-broad permissions; see
-        // request_rejected's definition in errors.ts for why those aren't
-        // split further here.
+        // Neither repo coverage nor permission grants are pre-checked before
+        // this call (see createTokenIssuer) — GitHub returns 422 for both
+        // (confirmed against the live API; not the 404 its own OpenAPI spec
+        // documents for repo coverage), classified here as request_rejected.
         if (cause instanceof RequestError && cause.status === 422) {
             throw new AppError('request_rejected', cause.message);
         }

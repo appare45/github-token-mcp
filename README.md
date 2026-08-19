@@ -52,8 +52,8 @@ pull_requests: write
 |---|---|
 | 400 | `invalid_request` — リクエスト形式が不正（権限レベルの指定ミスなど） |
 | 401 | Bearer認証失敗 |
-| 403 | Hostヘッダ不許可、または `permission_escalation_denied`（App登録済み権限を超える要求） |
-| 422 | `request_rejected`（GitHub側がリクエストを拒否。指定リポジトリがこのインストールでカバーされていない場合を含む。詳細はGitHubのエラーメッセージをそのまま返す） |
+| 403 | Hostヘッダ不許可 |
+| 422 | `request_rejected`（GitHub側がリクエストを拒否。指定リポジトリがこのインストールでカバーされていない、または要求した権限がApp登録済みの範囲を超える場合を含む。詳細はGitHubのエラーメッセージをそのまま返す） |
 | 502 | `github_api_error`（GitHub側でのトークン発行失敗） |
 | 503 | `key_unavailable`（1Passwordから秘密鍵が取得できない） |
 
@@ -74,8 +74,7 @@ curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp?contents=re
 ## 実装状況（骨子）
 
 - [x] `TokenIssuer` インターフェースによるトークン発行処理の抽象化
-- [x] repos カバレッジは事前検証せず、GitHubのトークン発行APIが返す422をそのまま `request_rejected` として返す
-- [x] permissions 部分集合検証 → 403 `permission_escalation_denied`
+- [x] repos カバレッジ・permissions のいずれも事前検証せず、GitHubのトークン発行APIが返す422をそのまま `request_rejected` として返す
 - [x] 1Password 経由の秘密鍵取得 → 503 `key_unavailable`
 - [x] `@octokit/auth-app` へのトークン発行委譲 → 502 `github_api_error`
 - [x] Hono + Bearer認証 + Hostヘッダ許可リストでの配信
@@ -89,7 +88,7 @@ src/
   config.ts          環境変数ロード
   errors.ts          エラーコードに対応するAppError
   op-secret.ts        1Password DesktopAuth 経由の秘密鍵取得
-  github-auth.ts      installation repos/permissions 検証 + createAppAuth 呼び出し
+  github-auth.ts      createAppAuth 呼び出し + GitHub側422レスポンスのrequest_rejectedへの分類
   token-issuer.ts       TokenIssuer インターフェース定義
   github-token-issuer.ts  TokenIssuer の GitHub App 向け実装
   app.ts               Hono アプリ（Bearer認証・Hostチェック・ルーティング）

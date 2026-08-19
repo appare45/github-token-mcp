@@ -12,8 +12,8 @@ import type { TokenIssuer } from './token-issuer.js';
  * Validates `?<permission>=<level>` query params into a RequestedPermissions.
  * Only checks that each value is a real PermissionLevel — whether the key
  * names an actual GitHub permission and whether this installation grants it
- * is checked downstream by `assertPermissionsAllowed`, which rejects both
- * cases as `permission_escalation_denied` (403).
+ * is left to GitHub's own token-issuance response (see github-auth.ts),
+ * which rejects both as `request_rejected` (422).
  */
 const validatePermissionsQuery = validator('query', (query, c) => {
     const entries = Object.entries(query);

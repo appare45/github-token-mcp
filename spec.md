@@ -44,8 +44,7 @@ ghs_xxxxxxxxxxxxxxxxxxxx
 
 想定エラー種別:
 - `invalid_request`（400） — リクエスト形式が不正（`owner/repo`のいずれかが欠落、権限レベルの指定ミスなど）
-- `permission_escalation_denied`（403） — App登録済みの権限を超える権限が事前検証で判明した
-- `request_rejected`（422） — GitHubのトークン発行APIがリクエストを拒否した。指定リポジトリがこのインストールでカバーされていない場合を含む。GitHubは404/422いずれの理由もこの1つのステータスに集約して返し、かつどちらが原因かを安定的に判別できるレスポンス形式を提供していないため、メッセージはGitHub側の文言をそのまま透過する
+- `request_rejected`（422） — GitHubのトークン発行APIがリクエストを拒否した。指定リポジトリがこのインストールでカバーされていない場合、要求した権限がApp登録済みの範囲を超える場合の両方を含む（両方とも実機で422を確認済み）。GitHubはこれらを1つのステータスに集約して返し、かつどちらが原因かを安定的に判別できるレスポンス形式を提供していないため、メッセージはGitHub側の文言をそのまま透過する
 - `key_unavailable`（503） — 1Passwordから秘密鍵が取得できない（未ログイン/未承認など）
 - `github_api_error`（502） — GitHub側でのトークン発行が失敗（レート制限、インストール失効など、422以外の失敗）
 
@@ -53,11 +52,10 @@ ghs_xxxxxxxxxxxxxxxxxxxx
 
 単一のGitHub App・単一のインストール（固定の`installation_id`）のみを想定する。
 
-1. リクエストされたリポジトリがこのインストールでカバーされているかは事前チェックしない。GitHubのトークン発行API自身が判定するため、余分なAPI呼び出し（`listReposAccessibleToInstallation`）を発行前に挟まない
-2. permissionsが指定されていれば、App登録済みの権限セットの部分集合であることを事前に検証する（`permission_escalation_denied`）
-3. `op read op://vault/item/private-key` で1Passwordから秘密鍵を取得する
-4. JWT生成とinstallation token発行は自前実装せず、Octokitの`createAppAuth`など既存SDKに任せる。App ID・秘密鍵・`installation_id`とともに、`repositories`・`permissions`を絞り込んだ状態でSDKに渡す。GitHub側がリポジトリ未カバー等の理由でリクエストを拒否した場合は422が返るので、これを`request_rejected`に分類する
-5. 発行結果（token）をそのまま呼び出し側に返す。サーバー自身はトークンをディスクにキャッシュしない
+1. リクエストされたリポジトリがこのインストールでカバーされているか、要求した権限がApp登録済みの範囲内かは、いずれも事前チェックしない。GitHubのトークン発行API自身がどちらも判定するため、余分なAPI呼び出し（`listReposAccessibleToInstallation`・`getInstallation`）を発行前に挟まない
+2. `op read op://vault/item/private-key` で1Passwordから秘密鍵を取得する
+3. JWT生成とinstallation token発行は自前実装せず、Octokitの`createAppAuth`など既存SDKに任せる。App ID・秘密鍵・`installation_id`とともに、`repositories`・`permissions`を絞り込んだ状態でSDKに渡す。GitHub側がリポジトリ未カバーまたは権限超過の理由でリクエストを拒否した場合は422が返るので、これを`request_rejected`に分類する
+4. 発行結果（token）をそのまま呼び出し側に返す。サーバー自身はトークンをディスクにキャッシュしない
 
 トークン発行処理は `TokenIssuer` インターフェースの背後に抽象化し、HTTP層（Hono）はこのインターフェースのみに依存する。
 
