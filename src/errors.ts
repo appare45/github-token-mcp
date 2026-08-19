@@ -1,3 +1,5 @@
+import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/http-status';
+
 export type TokenErrorCode =
     | 'invalid_request'
     | 'repo_not_installed'
@@ -5,13 +7,8 @@ export type TokenErrorCode =
     | 'key_unavailable'
     | 'github_api_error';
 
-/**
- * Deliberately not `hono`'s `StatusCode` type — errors.ts has no HTTP
- * framework dependency. This is a plain literal union that happens to be a
- * subset of Hono's `ContentfulStatusCode`, so `app.ts` can pass it to
- * `c.text()` without a cast.
- */
-export type HttpErrorStatus = 400 | 403 | 404 | 502 | 503;
+/** TokenError exists to become an HTTP response, so it's fine for httpStatus to speak Hono's status type directly. */
+export type HttpErrorStatus = ClientErrorStatusCode | ServerErrorStatusCode;
 
 const HTTP_STATUS: Record<TokenErrorCode, HttpErrorStatus> = {
     invalid_request: 400,
