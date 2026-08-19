@@ -16,7 +16,14 @@ function runTokenRequestHook(config: Config, repos: string[], permissions: Recor
     execFile(
         config.tokenRequestHookPath,
         [],
-        { env: { ...process.env, TOKEN_REQUEST_REPOS: repos.join(','), TOKEN_REQUEST_PERMISSIONS: JSON.stringify(permissions) } },
+        {
+            // Not the full process.env — that holds secrets this script has no need to see.
+            env: {
+                PATH: process.env.PATH,
+                TOKEN_REQUEST_REPOS: repos.join(','),
+                TOKEN_REQUEST_PERMISSIONS: JSON.stringify(permissions)
+            }
+        },
         (error) => {
             if (error) {
                 console.error(`[token-request-hook] failed: ${error.message}`);
