@@ -53,7 +53,7 @@ pull_requests: write
 | 400 | `invalid_request` — リクエスト形式が不正（権限レベルの指定ミスなど） |
 | 401 | Bearer認証失敗 |
 | 403 | Hostヘッダ不許可、または `permission_escalation_denied`（App登録済み権限を超える要求） |
-| 404 | `repo_not_installed`（指定リポジトリがこのインストールでカバーされていない） |
+| 422 | `request_rejected`（GitHub側がリクエストを拒否。指定リポジトリがこのインストールでカバーされていない場合を含む。詳細はGitHubのエラーメッセージをそのまま返す） |
 | 502 | `github_api_error`（GitHub側でのトークン発行失敗） |
 | 503 | `key_unavailable`（1Passwordから秘密鍵が取得できない） |
 
@@ -74,7 +74,7 @@ curl -sS "http://host.docker.internal:3000/appare45/github-token-mcp?contents=re
 ## 実装状況（骨子）
 
 - [x] `TokenIssuer` インターフェースによるトークン発行処理の抽象化
-- [x] repos カバレッジ検証 → 404 `repo_not_installed`
+- [x] repos カバレッジは事前検証せず、GitHubのトークン発行APIが返す422をそのまま `request_rejected` として返す
 - [x] permissions 部分集合検証 → 403 `permission_escalation_denied`
 - [x] 1Password 経由の秘密鍵取得 → 503 `key_unavailable`
 - [x] `@octokit/auth-app` へのトークン発行委譲 → 502 `github_api_error`

@@ -109,18 +109,15 @@ export async function issueInstallationToken(
             permissions: (result.permissions ?? permissions ?? {}) as PermissionMap
         };
     } catch (cause) {
-        // GitHub returns 404 when a requested repo isn't covered by this
-        // installation, and 422 when requested permissions exceed what the
-        // installation was granted — no need to pre-check either via extra
-        // API calls (listReposAccessibleToInstallation/getInstallation) when
-        // the token-issuance response already tells us.
-        if (cause instanceof RequestError) {
-            if (cause.status === 404) {
-                throw new AppError('repo_not_installed', `not covered by this installation: ${repos.join(', ')}`);
-            }
-            if (cause.status === 422) {
-                throw new AppError('permission_escalation_denied', cause.message);
-            }
+        // No pre-check via extra API calls (listReposAccessibleToInstallation)
+        // for repo coverage — GitHub's token-issuance response already tells
+        // us. In practice it returns 422 (not the 404 its own OpenAPI spec
+        // documents) for repos outside the installation, with the same
+        // status also documented for over-broad permissions; see
+        // request_rejected's definition in errors.ts for why those aren't
+        // split further here.
+        if (cause instanceof RequestError && cause.status === 422) {
+            throw new AppError('request_rejected', cause.message);
         }
         throw new AppError('github_api_error', `failed to issue installation token: ${(cause as Error).message}`);
     }

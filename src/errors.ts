@@ -2,8 +2,8 @@ import type { ClientErrorStatusCode, ServerErrorStatusCode } from 'hono/utils/ht
 
 export type AppErrorCode =
     | 'invalid_request'
-    | 'repo_not_installed'
     | 'permission_escalation_denied'
+    | 'request_rejected'
     | 'key_unavailable'
     | 'github_api_error';
 
@@ -12,8 +12,13 @@ export type HttpErrorStatus = ClientErrorStatusCode | ServerErrorStatusCode;
 
 const HTTP_STATUS: Readonly<Record<AppErrorCode, HttpErrorStatus>> = {
     invalid_request: 400,
-    repo_not_installed: 404,
     permission_escalation_denied: 403,
+    // GitHub's create-installation-access-token endpoint returns 422 both for
+    // repos outside the installation and (per its docs) for over-broad
+    // permissions, and the only way to tell them apart is by matching its
+    // free-text message — too brittle to rely on. request_rejected passes
+    // GitHub's own message straight through instead of re-guessing why.
+    request_rejected: 422,
     key_unavailable: 503,
     github_api_error: 502
 };

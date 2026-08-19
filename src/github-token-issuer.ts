@@ -20,7 +20,7 @@ export function createTokenIssuer(config: Config): TokenIssuer {
             }
 
             // Repo coverage isn't pre-checked here — issueInstallationToken
-            // maps GitHub's 404 response to repo_not_installed itself.
+            // classifies GitHub's own 422 response as request_rejected itself.
             return issueInstallationToken(config, privateKey, repos, permissions);
         }
     };
