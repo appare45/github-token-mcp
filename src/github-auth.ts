@@ -12,8 +12,16 @@ const PERMISSION_LEVEL_VALUES = ['read', 'write', 'admin'] as const;
 export type PermissionLevel = (typeof PERMISSION_LEVEL_VALUES)[number];
 export const PERMISSION_LEVELS: ReadonlySet<string> = new Set<PermissionLevel>(PERMISSION_LEVEL_VALUES);
 
+/**
+ * A permission request as validated by callers (e.g. `parsePermissionsFromQuery`):
+ * keys are arbitrary strings (not necessarily real GitHub permission names —
+ * `assertPermissionsAllowed` rejects unknown ones as 403, same as ones the
+ * installation just doesn't have), values are confirmed to be PermissionLevel.
+ */
+export type RequestedPermissions = Record<string, PermissionLevel>;
+
 /** Default permission grant when a caller doesn't request specific permissions, per spec.md. */
-export const DEFAULT_PERMISSIONS: PermissionMap = { contents: 'write', issues: 'write', pull_requests: 'write' };
+export const DEFAULT_PERMISSIONS: RequestedPermissions = { contents: 'write', issues: 'write', pull_requests: 'write' };
 
 export interface IssuedToken {
     token: string;
@@ -77,9 +85,9 @@ export function assertReposCovered(requested: string[], installed: string[]): vo
     }
 }
 
-export function assertPermissionsAllowed(requested: PermissionMap, granted: PermissionMap): void {
+export function assertPermissionsAllowed(requested: RequestedPermissions, granted: PermissionMap): void {
     const rank: Record<PermissionLevel, number> = { read: 1, write: 2, admin: 3 };
-    for (const [permission, level] of Object.entries(requested) as [string, PermissionLevel][]) {
+    for (const [permission, level] of Object.entries(requested)) {
         const grantedLevel = (granted as Record<string, PermissionLevel | undefined>)[permission];
         if (!grantedLevel || rank[level] > rank[grantedLevel]) {
             throw new TokenError('permission_escalation_denied', `requested "${permission}: ${level}" exceeds installed grant`);
@@ -95,7 +103,7 @@ export async function issueInstallationToken(
     config: Config,
     privateKey: string,
     repos: string[],
-    permissions?: PermissionMap
+    permissions?: RequestedPermissions
 ): Promise<IssuedToken> {
     const auth = createAppAuth({
         appId: config.appId,
@@ -107,7 +115,10 @@ export async function issueInstallationToken(
         const result = await auth({
             type: 'installation',
             repositoryNames: repos.map((repo) => repo.split('/').slice(1).join('/')),
-            ...(permissions ? { permissions } : {})
+            // permissions here is a caller-supplied subset validated by assertPermissionsAllowed
+            // above; createAppAuth's PermissionMap type is the external-SDK boundary, so this
+            // is the one place a cast is warranted.
+            ...(permissions ? { permissions: permissions as PermissionMap } : {})
         });
 
         return {

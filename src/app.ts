@@ -1,27 +1,34 @@
 import { Hono } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 import { logger } from 'hono/logger';
+import { validator } from 'hono/validator';
 
 import type { Config } from './config.js';
-import { isTokenError, TokenError } from './errors.js';
-import { DEFAULT_PERMISSIONS, PERMISSION_LEVELS, type PermissionMap } from './github-auth.js';
+import { isTokenError } from './errors.js';
+import { DEFAULT_PERMISSIONS, PERMISSION_LEVELS, type PermissionLevel, type RequestedPermissions } from './github-auth.js';
 import type { TokenIssuer } from './token-issuer.js';
 
-/** Parses `?<permission>=<level>` query params into a PermissionMap, or throws a TokenError on bad input. */
-function parsePermissionsFromQuery(query: Record<string, string>): PermissionMap | undefined {
+/**
+ * Validates `?<permission>=<level>` query params into a RequestedPermissions.
+ * Only checks that each value is a real PermissionLevel — whether the key
+ * names an actual GitHub permission and whether this installation grants it
+ * is checked downstream by `assertPermissionsAllowed`, which rejects both
+ * cases as `permission_escalation_denied` (403).
+ */
+const validatePermissionsQuery = validator('query', (query, c) => {
     const entries = Object.entries(query);
     if (entries.length === 0) {
         return undefined;
     }
-    const permissions: Record<string, string> = {};
+    const permissions: RequestedPermissions = {};
     for (const [key, value] of entries) {
-        if (!PERMISSION_LEVELS.has(value)) {
-            throw new TokenError('invalid_request', `invalid permission level for "${key}": ${value}`);
+        if (typeof value !== 'string' || !PERMISSION_LEVELS.has(value)) {
+            return c.text(`invalid permission level for "${key}": ${value}`, 400);
         }
-        permissions[key] = value;
+        permissions[key] = value as PermissionLevel;
     }
-    return permissions as PermissionMap;
-}
+    return permissions;
+});
 
 export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
     const app = new Hono();
@@ -38,17 +45,9 @@ export function buildApp(config: Config, tokenIssuer: TokenIssuer): Hono {
 
     app.use('*', bearerAuth({ token: config.bearerToken }));
 
-    app.get('/:owner/:repo', async (c) => {
+    app.get('/:owner/:repo', validatePermissionsQuery, async (c) => {
         const { owner, repo } = c.req.param();
-        let permissions: PermissionMap | undefined;
-        try {
-            permissions = parsePermissionsFromQuery(c.req.query());
-        } catch (error) {
-            if (isTokenError(error)) {
-                return c.text(error.message, error.httpStatus as 400);
-            }
-            throw error;
-        }
+        const permissions = c.req.valid('query');
 
         try {
             const result = await tokenIssuer.issueToken([`${owner}/${repo}`], permissions ?? DEFAULT_PERMISSIONS);
