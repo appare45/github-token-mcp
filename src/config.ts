@@ -20,17 +20,17 @@ function parseAllowedHosts(raw: string | undefined): string[] {
 export interface Config {
     /** GitHub App ID (numeric, as string in env). */
     appId: string;
-    /** Fixed installation ID this MCP is scoped to. */
+    /** Fixed installation ID this server is scoped to. */
     installationId: number;
     /** 1Password secret reference, e.g. op://vault/item/private-key */
     privateKeySecretRef: string;
     /** 1Password account name shown in the desktop app sidebar (for DesktopAuth). */
     onePasswordAccount: string;
     /** Shared bearer token devcontainer clients must present. */
-    mcpBearerToken: string;
+    bearerToken: string;
     /** Port to listen on. */
     port: number;
-    /** Host header values the MCP express app accepts (DNS rebinding protection). */
+    /** Host header values the HTTP server accepts (DNS rebinding protection). */
     allowedHosts: string[];
 }
 
@@ -40,8 +40,8 @@ export function loadConfig(): Config {
         installationId: Number(requireEnv('GITHUB_APP_INSTALLATION_ID')),
         privateKeySecretRef: requireEnv('GITHUB_APP_PRIVATE_KEY_OP_REF'),
         onePasswordAccount: requireEnv('OP_ACCOUNT_NAME'),
-        mcpBearerToken: requireEnv('MCP_BEARER_TOKEN'),
+        bearerToken: requireEnv('BEARER_TOKEN'),
         port: Number(process.env.PORT ?? '3000'),
-        allowedHosts: parseAllowedHosts(process.env.MCP_ALLOWED_HOSTS)
+        allowedHosts: parseAllowedHosts(process.env.ALLOWED_HOSTS)
     };
 }
